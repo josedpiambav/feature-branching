@@ -1,0 +1,14 @@
+name: 'Feature Branching'
+description: 'Automatic PR merging with feature branching'
+inputs:
+  trunk-branch:
+    description: 'Base branch name'
+    required: true
+  labels:
+    description: 'Comma-separated required labels'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Merge PRs
+      uses: docker://ghcr.io/josedpiambav/feature-branching:v1.0.0

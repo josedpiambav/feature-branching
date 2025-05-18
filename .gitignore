@@ -1,0 +1,8 @@
+/feature-branching
+*.exe
+*.dll
+*.so
+*.dylib
+
+/bin/
+/pkg/

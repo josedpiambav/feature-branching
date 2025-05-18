@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ghcr.io/josedpiambav/feature-branching
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create action version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get tag version
+          VERSION=${GITHUB_REF#refs/tags/}
+
+          # Validate semantic format
+          if [[ ! $VERSION =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "::error::Versión inválida: $VERSION"
+            exit 1
+          fi
+
+          # Create action file
+          cat <<EOF > action.yml
+          name: 'Feature Branching'
+          description: 'Automatic PR merging with feature branching'
+          inputs:
+            trunk-branch:
+              description: 'Base branch name'
+              required: true
+            labels:
+              description: 'Comma-separated required labels'
+              required: true
+          runs:
+            using: composite
+            steps:
+              - name: Merge PRs
+                uses: docker://ghcr.io/josedpiambav/feature-branching:$VERSION
+          EOF
+          
+          # Configuring the Git
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git
+
+          # Synchronize changes with the main and tag branch
+          COMMIT_SHA=$(git rev-parse HEAD)
+          git add action.yml
+          git commit --amend --no-edit
+          git push origin HEAD:main --force
+          git tag -f $VERSION $COMMIT_SHA
+          git push origin $VERSION --force

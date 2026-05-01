@@ -11,4 +11,4 @@ runs:
   using: composite
   steps:
     - name: Merge PRs
-      uses: docker://ghcr.io/josedpiambav/feature-branching:v1.0.0
+      uses: docker://ghcr.io/josedpiambav/feature-branching:v1.1.0
